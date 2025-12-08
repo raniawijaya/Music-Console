@@ -1,0 +1,5 @@
+﻿username,email,password,isAdmin
+admin,admin@mail,admin,1
+rania,rania@mail,12345,0
+caca,caca@example.com,12345,0
+geugeut,geugeut@mail.com,12345,0
