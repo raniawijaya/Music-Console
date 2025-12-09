@@ -1,31 +1,39 @@
 #ifndef AUTH_H
 #define AUTH_H
+
 #include <vector>
 #include <string>
-#include "../core/User.h"
-using namespace std;
+#include "User.h"
 
 class Auth {
 private:
-    vector<User> users;
-public:
-    Auth() {}
-    void loadUsers(const vector<User>& from) { users = from; }
-    vector<User> dumpUsers() const { return users; }
+    vector<User>* users;
 
-    bool registerUser(const User& u) {
-        for (auto &x: users) if (x.username==u.username) return false;
-        users.push_back(u);
-        return true;
-    }
-    User* login(const string& uname, const string& pass) {
-        for (auto &x: users) if (x.username==uname && x.password==pass) return &x;
+public:
+    Auth(vector<User>* u) : users(u) {}
+
+    User* login(const string& username, const string& password) {
+        for (auto &u : *users) {
+            if (u.username == username && u.password == password) {
+                return &u;
+            }
+        }
         return nullptr;
     }
-    // helper to ensure admin exists
-    void ensureAdmin() {
-        for (auto &x: users) if (x.isAdmin) return;
-        users.emplace_back("admin","admin@mail","admin",true);
+
+    bool registerUser(const string& username,
+                      const string& email,
+                      const string& password,
+                      const string& role)
+    {
+        for (auto &u : *users) {
+            if (u.username == username)
+                return false;
+        }
+
+        users->emplace_back(username, email, password, role);
+        return true;
     }
 };
+
 #endif

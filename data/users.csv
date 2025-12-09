@@ -1,5 +1,6 @@
-﻿username,email,password,isAdmin
-admin,admin@mail,admin,1
-rania,rania@mail,12345,0
-caca,caca@example.com,12345,0
-geugeut,geugeut@mail.com,12345,0
+username,email,password,role
+admin,admin@mail,admin,admin
+rania,rania@mail,12345,user
+caca,caca@example.com,12345,user
+geugeut,geugeut@mail.com,12345,user
+Kimmy,kim@mail,abcde,user

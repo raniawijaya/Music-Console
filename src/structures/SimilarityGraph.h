@@ -1,54 +1,59 @@
-#ifndef SIMILARITYGRAPH_H
-#define SIMILARITYGRAPH_H
+#ifndef SIMILARITY_GRAPH_H
+#define SIMILARITY_GRAPH_H
+
 #include <unordered_map>
 #include <vector>
-#include <algorithm>
+#include <memory>
+#include <cmath>
 #include "../core/Song.h"
-#include "../structures/Library.h"
+
 using namespace std;
 
-/*
- Graph adjacency list: map song id -> vector of (neighbor id, weight)
- Weight is heuristic similarity.
-*/
-class Graph {
-private:
-    unordered_map<int, vector<pair<int,double>>> adj;
+class SimilarityGraph {
 public:
-    void cls() { adj.clear(); }
-    void addEdge(int a, int b, double w) {
-        if (a==b) return;
-        adj[a].push_back({b,w});
-        adj[b].push_back({a,w});
-    }
-    void removeNode(int id) {
-        adj.erase(id);
-        for (auto &kv: adj) {
-            auto &vec = kv.second;
-            vec.erase(remove_if(vec.begin(), vec.end(), [&](const pair<int,double>&p){ return p.first==id; }), vec.end());
-        }
-    }
-    vector<int> topK(int id, int k=3) {
-        vector<int> out;
-        if (adj.find(id)==adj.end()) return out;
-        auto vec = adj[id];
-        sort(vec.begin(), vec.end(), [](auto &a, auto &b){ return a.second > b.second; });
-        for (int i=0;i<(int)vec.size() && (int)out.size()<k;i++) out.push_back(vec[i].first);
-        return out;
-    }
-    void buildFromLibrary(const Library& lib) {
-        cls();
-        auto all = lib.allSorted();
-        int n = all.size();
-        for (int i=0;i<n;i++) {
-            for (int j=i+1;j<n;j++) {
-                double score = 0;
-                if (all[i]->artist == all[j]->artist) score += 5;
-                if (all[i]->genre == all[j]->genre) score += 3;
-                if (abs(all[i]->year - all[j]->year) <= 1) score += 1;
-                if (score>0) addEdge(all[i]->id, all[j]->id, score);
+    // adjacency list
+    unordered_map<int, vector<pair<int,double>>> g;
+
+    // recreate graph from library list
+    void build(const vector<shared_ptr<Song>>& songs) {
+        g.clear();
+
+        for (auto &a : songs) {
+            for (auto &b : songs) {
+                if (a->id == b->id) continue;
+
+                double w = similarity(a, b);
+                if (w > 0)
+                    g[a->id].push_back({ b->id, w });
             }
         }
     }
+
+    // simple similarity
+    double similarity(shared_ptr<Song> a, shared_ptr<Song> b) {
+        double score = 0.0;
+
+        if (a->genre == b->genre) score += 2.0;
+        if (a->artist == b->artist) score += 1.0;
+
+        int diff = abs(a->year - b->year);
+        score += max(0.0, 1.0 - diff / 10.0);
+
+        return score;
+    }
+
+    // recommended sorted by weight desc
+    vector<int> recommend(int id) {
+        vector<int> res;
+        if (!g.count(id)) return res;
+
+        auto vec = g[id];
+        sort(vec.begin(), vec.end(),
+             [](auto &x, auto &y) { return x.second > y.second; });
+
+        for (auto &x : vec) res.push_back(x.first);
+        return res;
+    }
 };
+
 #endif

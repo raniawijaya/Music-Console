@@ -1,14 +1,11 @@
 #ifndef PLAYLIST_H
 #define PLAYLIST_H
-#include <memory>
+
 #include <string>
+#include <memory>
 #include <iostream>
 #include "../core/Song.h"
 using namespace std;
-
-/*
- Doubly linked list playlist. Each node stores shared_ptr<Song>.
-*/
 
 class Playlist {
 public:
@@ -16,15 +13,21 @@ public:
         shared_ptr<Song> song;
         Node* prev;
         Node* next;
-        Node(shared_ptr<Song> s): song(s), prev(nullptr), next(nullptr) {}
+
+        Node(shared_ptr<Song> s)
+            : song(s), prev(nullptr), next(nullptr) {}
     };
+
 private:
+    string name;
     Node* head;
     Node* tail;
-    string name;
+
 public:
-    Playlist(const string& nm="unnamed"): head(nullptr), tail(nullptr), name(nm) {}
-    ~Playlist() { cls(); }
+    Playlist(const string& nm = "Unnamed")
+        : name(nm), head(nullptr), tail(nullptr) {}
+
+    ~Playlist() { clear(); }
 
     string getName() const { return name; }
 
@@ -37,12 +40,17 @@ public:
             tail = node;
         }
     }
-    bool removeSongById(int id) {
+
+    bool removeSong(int id) {
         Node* cur = head;
-        while(cur) {
+        while (cur) {
             if (cur->song && cur->song->id == id) {
-                if (cur->prev) cur->prev->next = cur->next; else head = cur->next;
-                if (cur->next) cur->next->prev = cur->prev; else tail = cur->prev;
+                if (cur->prev) cur->prev->next = cur->next;
+                else head = cur->next;
+
+                if (cur->next) cur->next->prev = cur->prev;
+                else tail = cur->prev;
+
                 delete cur;
                 return true;
             }
@@ -50,28 +58,37 @@ public:
         }
         return false;
     }
-    int removeAllReferences(int id) {
-        int cnt=0;
-        while(removeSongById(id)) cnt++;
-        return cnt;
+
+    vector<shared_ptr<Song>> toVector() const {
+        vector<shared_ptr<Song>> v;
+        Node* cur = head;
+        while (cur) {
+            v.push_back(cur->song);
+            cur = cur->next;
+        }
+        return v;
     }
+
+    Node* first() const { return head; }
+
     void show() const {
         cout << "Playlist: " << name << "\n";
         Node* cur = head;
-        while(cur) {
-            if (cur->song) cout << "  - " << cur->song->brief() << "\n";
+        while (cur) {
+            cout << "  - " << cur->song->brief() << "\n";
             cur = cur->next;
         }
     }
-    Node* first() const { return head; }
-    void cls() {
+
+    void clear() {
         Node* cur = head;
-        while(cur) {
-            Node* nx = cur->next;
+        while (cur) {
+            Node* nxt = cur->next;
             delete cur;
-            cur = nx;
+            cur = nxt;
         }
         head = tail = nullptr;
     }
 };
+
 #endif

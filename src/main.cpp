@@ -2,10 +2,13 @@
 #include "ui/Menu.h"
 
 int main() {
-    std::cout << "PROGRAM STARTED\n";   // <--- DEBUG CEK
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+
     Menu app;
-    std::cout << "MENU LOADED\n";       // <--- DEBUG CEK
-    app.mainLoop();
-    std::cout << "PROGRAM EXIT\n";
+    app.run();
     return 0;
 }

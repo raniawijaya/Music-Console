@@ -1,75 +1,207 @@
 #ifndef FILEIO_H
 #define FILEIO_H
+
+#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <string>
+#include <memory>
+
 #include "../core/Song.h"
 #include "../core/User.h"
+#include "../structures/Library.h"
+#include "../structures/PlaylistManager.h"
+
 using namespace std;
 
-/*
- Simple CSV loader/saver for songs & users.
- Format songs.csv: id,title,artist,album,genre,year,duration
- Format users.csv: username,email,password,isAdmin(0/1)
-*/
+class FileIO {
+public:
 
-namespace FileIO {
-    vector<shared_ptr<Song>> loadSongs(const string& path) {
-        vector<shared_ptr<Song>> out;
-        ifstream ifs(path);
-        if (!ifs.is_open()) return out;
+    // ============================================================
+    // LOAD SONGS
+    // ============================================================
+    static void loadSongs(const string &path, Library &library) {
+        ifstream file(path);
+        if (!file.is_open()) {
+            cout << "[WARNING] songs.csv tidak ditemukan. Membuat baru.\n";
+            return;
+        }
+
         string line;
-        while (getline(ifs, line)) {
+        getline(file, line); // skip header
+
+        while (getline(file, line)) {
             if (line.empty()) continue;
-            // naive CSV split (no complex escaping)
+
             stringstream ss(line);
-            string tok;
-            vector<string> f;
-            while (getline(ss, tok, ',')) f.push_back(tok);
-            if (f.size() < 7) continue;
+            string id, title, artist, album, genre, year, duration;
+
+            getline(ss, id, ',');
+            getline(ss, title, ',');
+            getline(ss, artist, ',');
+            getline(ss, album, ',');
+            getline(ss, genre, ',');
+            getline(ss, year, ',');
+            getline(ss, duration, ',');
+
             try {
-                int id = stoi(f[0]);
-                string title = f[1];
-                string artist = f[2];
-                string album = f[3];
-                string genre = f[4];
-                int year = stoi(f[5]);
-                double dur = stod(f[6]);
-                out.push_back(make_shared<Song>(id,title,artist,album,genre,year,dur));
-            } catch (...) { continue; }
+                auto s = make_shared<Song>(
+                    stoi(id),
+                    title,
+                    artist,
+                    album,
+                    genre,
+                    stoi(year),
+                    stod(duration)
+                );
+                library.insert(s);
+
+            } catch (...) {
+                cout << "[ERROR] songs.csv baris rusak: " << line << endl;
+            }
         }
-        return out;
+
+        file.close();
     }
 
-    vector<User> loadUsers(const string& path) {
+    // ============================================================
+    // SAVE SONGS
+    // ============================================================
+    static void saveSongs(const string &path, const Library &library) {
+        ofstream file(path);
+        file << "id,title,artist,album,genre,year,duration\n";
+
+        for (auto &s : library.all()) {
+            file << s->id << ","
+                 << s->title << ","
+                 << s->artist << ","
+                 << s->album << ","
+                 << s->genre << ","
+                 << s->year << ","
+                 << s->duration << "\n";
+        }
+
+        file.close();
+    }
+
+    // ============================================================
+    // LOAD USERS (FINAL FIX)
+    // FORMAT CSV: username,email,password,role
+    // ============================================================
+    static vector<User> loadUsers(const string &path) {
         vector<User> out;
-        ifstream ifs(path);
-        if (!ifs.is_open()) return out;
-        string line;
-        while (getline(ifs, line)) {
-            if (line.empty()) continue;
-            stringstream ss(line);
-            string a,b,c,d;
-            getline(ss,a,','); getline(ss,b,','); getline(ss,c,','); getline(ss,d,',');
-            bool admin = (d=="1");
-            out.emplace_back(a,b,c,admin);
+
+        ifstream file(path);
+        if (!file.is_open()) {
+            cout << "[WARNING] users.csv tidak ditemukan. Membuat baru.\n";
+            return out;
         }
+
+        string line;
+        getline(file, line); // skip header
+
+        while (getline(file, line)) {
+            if (line.empty()) continue;
+
+            stringstream ss(line);
+            string username, email, password, role;
+
+            getline(ss, username, ',');
+            getline(ss, email, ',');
+            getline(ss, password, ',');
+            getline(ss, role, ',');
+
+            out.emplace_back(username, email, password, role);
+        }
+
+        file.close();
         return out;
     }
 
-    bool saveSongs(const string& path, const vector<shared_ptr<Song>>& songs) {
-        ofstream ofs(path);
-        if (!ofs.is_open()) return false;
-        for (auto &s: songs) ofs << s->toCSV() << "\n";
-        return true;
+    // ============================================================
+    // SAVE USERS (FINAL FIX)
+    // ============================================================
+    static void saveUsers(const string &path, const vector<User> &users) {
+        ofstream file(path);
+        file << "username,email,password,role\n";
+
+        for (auto &u : users) {
+            file << u.username << ","
+                 << u.email << ","
+                 << u.password << ","
+                 << u.role << "\n";
+        }
+
+        file.close();
     }
 
-    bool saveUsers(const string& path, const vector<User>& users) {
-        ofstream ofs(path);
-        if (!ofs.is_open()) return false;
-        for (auto &u: users) ofs << u.toCSV() << "\n";
-        return true;
+    // ============================================================
+    // LOAD PLAYLISTS (per-user CSV)
+    // ============================================================
+    static void loadPlaylists(PlaylistManager &mgr,
+                              const Library &library,
+                              const vector<User> &users)
+    {
+        for (auto &u : users) {
+
+            string filename = "data/playlist_" + u.username + ".csv";
+            ifstream file(filename);
+
+            if (!file.is_open()) continue; // belum punya playlist
+
+            string line;
+            getline(file, line); // header
+
+            while (getline(file, line)) {
+                if (line.empty()) continue;
+
+                stringstream ss(line);
+                string playlistName, idStr;
+
+                getline(ss, playlistName, ',');
+                getline(ss, idStr, ',');
+
+                int id = stoi(idStr);
+                auto s = library.find(id);
+                if (!s) continue;
+
+                Playlist* p = mgr.create(u.username, playlistName);
+                p->addSong(s);
+            }
+
+            file.close();
+        }
     }
-}
+
+    // ============================================================
+    // SAVE PLAYLISTS (per-user CSV)
+    // ============================================================
+    static void savePlaylists(const PlaylistManager &mgr,
+                              const vector<User> &users)
+    {
+        for (auto &u : users) {
+
+            string filename = "data/playlist_" + u.username + ".csv";
+            ofstream file(filename);
+
+            file << "playlistName,songID\n";
+
+            // jika user punya playlist
+            if (mgr.maps.count(u.username)) {
+                for (auto &p : mgr.maps.at(u.username)) {
+                    Playlist* pl = p.second;
+
+                    for (auto &s : pl->toVector()) {
+                        file << pl->getName() << ","
+                             << s->id << "\n";
+                    }
+                }
+            }
+
+            file.close();
+        }
+    }
+};
+
 #endif
